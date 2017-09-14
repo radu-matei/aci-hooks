@@ -2,12 +2,18 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 
 	"log"
 )
 
-// WebhookData struct models the data sent from Docker Hub webhooks
+var (
+	resourceGroupName  = getEnvVarOrExit("RESOURCE_GROUP_NAME")
+	containerGroupName = getEnvVarOrExit("CONTAINER_GROUP_NAME")
+)
+
+// WebhookData struct is the data sent from Docker Hub webhooks
 type WebhookData struct {
 	PushData struct {
 		PushedAt int      `json:"pushed_at"`
@@ -35,11 +41,11 @@ type WebhookData struct {
 }
 
 func main() {
-	http.HandleFunc("/", hookHandler)
+	http.HandleFunc("/", handleWebhook)
 	http.ListenAndServe(":8080", nil)
 }
 
-func hookHandler(w http.ResponseWriter, r *http.Request) {
+func handleWebhook(w http.ResponseWriter, r *http.Request) {
 	decoder := json.NewDecoder(r.Body)
 	var webhookData WebhookData
 	err := decoder.Decode(&webhookData)
@@ -48,7 +54,6 @@ func hookHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	defer r.Body.Close()
 
-	log.Printf("Pusher: %s", webhookData.PushData.Pusher)
-	log.Printf("%s/%s", webhookData.Repository.Owner, webhookData.Repository.Name)
-	log.Printf("Tag: %s", webhookData.PushData.Tag)
+	fmt.Println("received webhook")
+	updateAzureContainer(resourceGroupName, containerGroupName, webhookData)
 }
