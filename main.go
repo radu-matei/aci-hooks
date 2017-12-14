@@ -48,12 +48,19 @@ func main() {
 func handleWebhook(w http.ResponseWriter, r *http.Request) {
 	decoder := json.NewDecoder(r.Body)
 	var webhookData WebhookData
+
 	err := decoder.Decode(&webhookData)
 	if err != nil {
 		log.Printf("cannot decode request body: %v", err)
 	}
 	defer r.Body.Close()
 
-	fmt.Println("received webhook")
-	updateAzureContainer(resourceGroupName, containerGroupName, webhookData)
+	fmt.Println("Received webhook, attempting to update Azure Container Instance...")
+
+	err = updateAzureContainer(resourceGroupName, containerGroupName, webhookData)
+	if err != nil {
+		log.Fatalf("cannot update container instance: %v", err)
+	}
+
+	fmt.Println("Finished, waiting for new version...")
 }

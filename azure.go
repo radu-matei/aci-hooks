@@ -40,34 +40,40 @@ func getContainerGroupsClient() (containerinstance.ContainerGroupsClient, error)
 	return containerGroupsClient, nil
 }
 
-func updateAzureContainer(resourceGroupName, containerGroupName string, webhookData WebhookData) {
+func updateAzureContainer(resourceGroupName, containerGroupName string, webhookData WebhookData) error {
 	containerGroupsClient, err := getContainerGroupsClient()
 	if err != nil {
-		fmt.Printf("cannot get container groups client: %v", err)
+		return fmt.Errorf("cannot get container groups client: %v", err)
 	}
 
 	containerGroup, err := containerGroupsClient.Get(resourceGroupName, containerGroupName)
 	if err != nil {
-		fmt.Printf("cannot get container group: %v", err)
+		return fmt.Errorf("cannot get container group: %v", err)
 	}
 
 	containers := *containerGroup.Containers
 	for index, container := range containers {
 
 		image := *container.Image
+		newVersion := fmt.Sprintf("%s/%s:%s",
+			webhookData.Repository.Namespace,
+			webhookData.Repository.Name,
+			webhookData.PushData.Tag)
+
 		if image == fmt.Sprintf("%s/%s", webhookData.Repository.Namespace, webhookData.Repository.Name) {
-			fmt.Println("found image")
 			updatedContainer := (*containerGroup.Containers)[index]
-			*updatedContainer.Image = fmt.Sprintf("%s/%s:%s", webhookData.Repository.Namespace, webhookData.Repository.Name, webhookData.PushData.Tag)
+			*updatedContainer.Image = newVersion
 
 			_, err := containerGroupsClient.CreateOrUpdate(resourceGroupName, containerGroupName, containerGroup)
 			if err != nil {
-				fmt.Printf("%v", err)
+				return fmt.Errorf("cannot update container: %v", err)
 			}
-			fmt.Println("updated image")
+
+			fmt.Printf("updated container image to new version: %s", newVersion)
 		}
-		return
 	}
+
+	return nil
 }
 
 func getEnvVarOrExit(varName string) string {
